@@ -22,7 +22,7 @@
 
     var generationProcesses = [];
     var incompleteAddressSearch = null;
-    var incompleteAddressSearchLimit = 250000;
+    var incompleteAddressSearchLimit = 1000000;
 
     var DOM = {};
     DOM.privacyScreenToggle = $(".privacy-screen-toggle");

@@ -36,9 +36,27 @@
 
                         <div class="form-group">
                             <div class="col-sm-offset-3 col-sm-9">
-                                <button type="button" id="address-match-button" class="btn btn-primary">Check candidate seeds</button>
+                                <button type="button" id="address-worker-button" class="btn btn-primary">Check candidate seeds</button>
+                                <button type="button" id="address-worker-cancel" class="btn btn-default" disabled>Stop</button>
                             </div>
                         </div>
+
+                        <div class="form-group">
+                            <label for="address-word-count" class="col-sm-3 control-label">Allowed word count</label>
+                            <div class="col-sm-9">
+                                <select id="address-word-count" class="form-control">
+                                    <option value="any">12, 18, or 24 words</option>
+                                    <option value="12">12 words only</option>
+                                    <option value="18">18 words only</option>
+                                    <option value="24">24 words only</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="progress">
+                            <progress id="address-worker-progress" class="progress-bar" value="0" max="1" style="width: 100%;"></progress>
+                        </div>
+                        <p id="address-worker-status" class="text-muted">Ready to check the supplied candidate phrases.</p>
 
                         <hr>
                         <h3>Recover an incomplete phrase</h3>
@@ -97,5 +115,6 @@
         <script src="js/zxcvbn.js"></script>
         <script src="js/entropy.js"></script>
         <script src="js/index.js"></script>
+        <script src="js/address-checker-page.js"></script>
     </body>
 </html>
