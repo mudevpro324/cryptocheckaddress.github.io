@@ -39,6 +39,24 @@
                                 <button type="button" id="address-match-button" class="btn btn-primary">Check candidate seeds</button>
                             </div>
                         </div>
+
+                        <hr>
+                        <h3>Recover an incomplete phrase</h3>
+                        <p class="text-muted">Use one <code>?</code> for each missing word. Up to six missing words are accepted. The search is local, checksum-filtered, capped, and cancelable.</p>
+                        <div class="form-group">
+                            <label for="address-match-pattern" class="col-sm-3 control-label">Incomplete Mnemonic</label>
+                            <div class="col-sm-9">
+                                <textarea id="address-match-pattern" class="form-control private-data" rows="4" placeholder="word1 word2 ? word4 ..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="col-sm-offset-3 col-sm-9">
+                                <button type="button" id="address-match-search-button" class="btn btn-warning">Search incomplete phrase</button>
+                                <button type="button" id="address-match-cancel-button" class="btn btn-default" disabled>Cancel search</button>
+                                <div id="address-match-search-status" class="text-muted" style="margin-top: 10px;"></div>
+                            </div>
+                        </div>
                     </form>
 
                     <div id="address-match-results" style="margin-top: 10px;"></div>

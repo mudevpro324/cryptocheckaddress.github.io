@@ -21,6 +21,8 @@
     var rootKeyChangedTimeoutEvent = null;
 
     var generationProcesses = [];
+    var incompleteAddressSearch = null;
+    var incompleteAddressSearchLimit = 250000;
 
     var DOM = {};
     DOM.privacyScreenToggle = $(".privacy-screen-toggle");
@@ -123,12 +125,18 @@
     DOM.addressMatchCandidates = $("#address-match-candidates");
     DOM.addressMatchButton = $("#address-match-button");
     DOM.addressMatchResults = $("#address-match-results");
+    DOM.addressMatchPattern = $("#address-match-pattern");
+    DOM.addressMatchSearchButton = $("#address-match-search-button");
+    DOM.addressMatchCancelButton = $("#address-match-cancel-button");
+    DOM.addressMatchSearchStatus = $("#address-match-search-status");
 
     function init() {
         // Events
 
         DOM.phrase.on("input", delayedPhraseChanged);
         DOM.addressMatchButton.on("click", checkAddressMatches);
+        DOM.addressMatchSearchButton.on("click", searchIncompleteAddress);
+        DOM.addressMatchCancelButton.on("click", cancelIncompleteAddressSearch);
  
         setQrEvents(DOM.showQrEls);
         hideValidationError();
@@ -385,6 +393,128 @@
         }
         html += '</ul>';
         DOM.addressMatchResults.html(html);
+    }
+
+    function escapeHtml(value) {
+        return $('<div>').text(value).html();
+    }
+
+    function searchIncompleteAddress() {
+        cancelIncompleteAddressSearch();
+
+        var targetAddress = normalizeAddress(DOM.addressMatchTarget.val());
+        var pattern = normalizeAddress(DOM.addressMatchPattern.val());
+        var words = phraseToWordArray(pattern);
+        var missingIndexes = [];
+        var language = getLanguageFromPhrase(pattern) || "english";
+        var wordlist = WORDLISTS[language];
+
+        if (!targetAddress) {
+            DOM.addressMatchSearchStatus.html('<span class="text-danger">Enter a target Bitcoin or Ethereum address first.</span>');
+            return;
+        }
+        if (words.length !== 12 && words.length !== 18 && words.length !== 24) {
+            DOM.addressMatchSearchStatus.html('<span class="text-danger">Use a 12-, 18-, or 24-word phrase.</span>');
+            return;
+        }
+        for (var i = 0; i < words.length; i++) {
+            if (words[i] === "?") {
+                missingIndexes.push(i);
+            }
+            else if (wordlist.indexOf(words[i]) === -1) {
+                DOM.addressMatchSearchStatus.html('<span class="text-danger">Unknown word: ' + escapeHtml(words[i]) + '</span>');
+                return;
+            }
+        }
+        if (missingIndexes.length === 0 || missingIndexes.length > 6) {
+            DOM.addressMatchSearchStatus.html('<span class="text-danger">Use between one and six ? placeholders.</span>');
+            return;
+        }
+
+        incompleteAddressSearch = {
+            targetAddress: targetAddress,
+            words: words,
+            missingIndexes: missingIndexes,
+            wordlist: wordlist,
+            mnemonic: getMnemonicObjectForPhrase(words.join(" ")),
+            nextCandidate: 0,
+            checked: 0,
+            valid: 0,
+            total: Math.pow(wordlist.length, missingIndexes.length),
+            startedAt: Date.now(),
+            cancelled: false
+        };
+        DOM.addressMatchSearchButton.prop("disabled", true);
+        DOM.addressMatchCancelButton.prop("disabled", false);
+        DOM.addressMatchResults.empty();
+        runIncompleteAddressSearchBatch();
+    }
+
+    function cancelIncompleteAddressSearch() {
+        if (!incompleteAddressSearch) {
+            return;
+        }
+        incompleteAddressSearch.cancelled = true;
+        incompleteAddressSearch = null;
+        DOM.addressMatchSearchButton.prop("disabled", false);
+        DOM.addressMatchCancelButton.prop("disabled", true);
+        DOM.addressMatchSearchStatus.text("Search cancelled.");
+    }
+
+    function runIncompleteAddressSearchBatch() {
+        var state = incompleteAddressSearch;
+        if (!state || state.cancelled) {
+            return;
+        }
+
+        var batchSize = 100;
+        var match = null;
+        while (state.nextCandidate < state.total && state.checked < incompleteAddressSearchLimit && state.checked < state.nextCandidate + batchSize) {
+            var candidateNumber = state.nextCandidate++;
+            var number = candidateNumber;
+            for (var i = 0; i < state.missingIndexes.length; i++) {
+                state.words[state.missingIndexes[i]] = state.wordlist[number % state.wordlist.length];
+                number = Math.floor(number / state.wordlist.length);
+            }
+
+            state.checked++;
+            var phrase = state.mnemonic.joinWords(state.words);
+            if (!state.mnemonic.check(phrase)) {
+                continue;
+            }
+            state.valid++;
+            var addressSet = buildAddressSetForPhrase(phrase, "");
+            for (var j = 0; j < addressSet.length; j++) {
+                if (addressesMatch(addressSet[j].address, state.targetAddress)) {
+                    match = { phrase: phrase, derivation: addressSet[j] };
+                    break;
+                }
+            }
+            if (match) {
+                break;
+            }
+        }
+
+        if (match) {
+            incompleteAddressSearch = null;
+            DOM.addressMatchSearchButton.prop("disabled", false);
+            DOM.addressMatchCancelButton.prop("disabled", true);
+            DOM.addressMatchSearchStatus.html('<span class="text-success">Match found after checking ' + state.checked + ' candidate(s).</span>');
+            DOM.addressMatchResults.html('<div class="alert alert-success"><strong>Matching seed phrase:</strong><br><span class="monospace">' + escapeHtml(match.phrase) + '</span><br>Derivation: ' + escapeHtml(match.derivation.label + ' (' + match.derivation.path + ')') + '</div>');
+            return;
+        }
+
+        var finished = state.nextCandidate >= state.total || state.checked >= incompleteAddressSearchLimit;
+        var totalText = state.total > 1000000000 ? "many" : state.total;
+        DOM.addressMatchSearchStatus.text("Checked " + state.checked + " of " + totalText + " candidates; " + state.valid + " passed the BIP39 checksum.");
+        if (finished) {
+            incompleteAddressSearch = null;
+            DOM.addressMatchSearchButton.prop("disabled", false);
+            DOM.addressMatchCancelButton.prop("disabled", true);
+            DOM.addressMatchResults.html('<div class="alert alert-info">No match found within the bounded search. The search limit is ' + incompleteAddressSearchLimit + ' candidates.</div>');
+            return;
+        }
+        setTimeout(runIncompleteAddressSearchBatch, 0);
     }
 
     function findPhraseErrors(phrase) {
