@@ -228,6 +228,16 @@
         return address.trim().replace(/^\s+|\s+$/g, "");
     }
 
+    function addressesMatch(candidateAddress, targetAddress) {
+        if (!candidateAddress || !targetAddress) {
+            return false;
+        }
+        if (/^0x/i.test(targetAddress)) {
+            return candidateAddress.toLowerCase() === targetAddress.toLowerCase();
+        }
+        return candidateAddress === targetAddress;
+    }
+
     function getWordCount(phrase) {
         return phraseToWordArray(phrase).length;
     }
@@ -336,7 +346,7 @@
             var found = [];
             for (var j = 0; j < addressSet.length; j++) {
                 var candidate = addressSet[j];
-                if (candidate.address && candidate.address.toLowerCase() === targetAddress.toLowerCase()) {
+                if (addressesMatch(candidate.address, targetAddress)) {
                     found.push(candidate.label + ' (' + candidate.path + ')');
                 }
             }
